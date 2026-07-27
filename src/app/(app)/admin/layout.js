@@ -6,7 +6,7 @@ export default async function AdminLayout({ children }) {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) redirect("/login");
-  if (session.user.role !== "admin") redirect("/courses");
+  if (!["admin", "moderator"].includes(session.user.role)) redirect("/courses");
 
   return <>{children}</>;
 }

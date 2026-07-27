@@ -1,22 +1,33 @@
-import { LibraryBig } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, LibraryBig } from "lucide-react";
 
 export default function AuthShell({ children, eyebrow, title }) {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-bg">
       {/* Spine panel — top band on mobile, full left column on desktop */}
       <div className="relative flex md:flex-col items-center md:items-start gap-3 md:gap-6 px-6 py-5 md:py-10 md:w-64 lg:w-80 border-b md:border-b-0 md:border-r border-border bg-surface">
-        <div className="flex items-center gap-3 md:flex-col md:items-start md:gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
-            <LibraryBig size={20} strokeWidth={1.75} />
+        <div className="flex flex-col items-start gap-2 md:gap-4 w-full">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
+              <LibraryBig size={20} strokeWidth={1.75} />
+            </div>
+            <div className="leading-tight">
+              <p className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
+                Catalog System
+              </p>
+              <p className="font-sans text-base md:text-lg font-medium text-text">
+                UBIT Study Hub
+              </p>
+            </div>
           </div>
-          <div className="leading-tight">
-            <p className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-              Catalog System
-            </p>
-            <p className="font-sans text-base md:text-lg font-medium text-text">
-              UBIT Study Hub
-            </p>
-          </div>
+
+        <Link
+          href="/courses"
+          className="flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors"
+        >
+          <ArrowLeft size={13} strokeWidth={1.75} />
+          Back to courses
+        </Link>
         </div>
 
         {/* Tick-mark ruler detail — desktop only */}

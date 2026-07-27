@@ -1,20 +1,33 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { User, Folder as FolderIcon, FileText, Link as LinkIcon, Film, Image as ImageIcon, LoaderCircle, Inbox } from "lucide-react";
+import {
+  User,
+  Folder as FolderIcon,
+  FileText,
+  Link as LinkIcon,
+  Film,
+  Image as ImageIcon,
+  LoaderCircle,
+  Inbox,
+  Plus,
+} from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import SubmitResourceForm from "./SubmitResourceForm";
+import AddTeacherForm from "./AddTeacherForm";
 
-const FILE_ICONS = {
-  pdf: FileText,
-  image: ImageIcon,
-  video: Film,
-  link: LinkIcon,
-};
+const FILE_ICONS = { pdf: FileText, image: ImageIcon, video: Film, link: LinkIcon };
 
-export default function ResourceBrowser({ courseId, teachers, folders }) {
-  const [selectedTeacher, setSelectedTeacher] = useState(teachers[0]?._id || null);
+export default function ResourceBrowser({ courseId, teachers: initialTeachers, folders }) {
+  const { data: session } = useSession();
+  const [teachers, setTeachers] = useState(initialTeachers);
+  const [selectedTeacher, setSelectedTeacher] = useState(initialTeachers[0]?._id || null);
   const [selectedFolder, setSelectedFolder] = useState(folders[0]?._id || null);
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+
+  const canModerate = session && ["admin", "moderator"].includes(session.user.role);
 
   const fetchResources = useCallback(async () => {
     if (!selectedTeacher || !selectedFolder) return;
@@ -34,16 +47,6 @@ export default function ResourceBrowser({ courseId, teachers, folders }) {
     fetchResources();
   }, [fetchResources]);
 
-  if (teachers.length === 0) {
-    return (
-      <div className="rounded-md border border-border bg-surface p-8 text-center">
-        <p className="text-sm text-text-muted">
-          No teachers added for this course yet. An admin or moderator needs to add one first.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* Teacher selector */}
@@ -51,7 +54,7 @@ export default function ResourceBrowser({ courseId, teachers, folders }) {
         <p className="font-mono text-[11px] tracking-wide text-text-muted uppercase mb-2">
           Taught by
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {teachers.map((teacher) => (
             <button
               key={teacher._id}
@@ -67,60 +70,114 @@ export default function ResourceBrowser({ courseId, teachers, folders }) {
             </button>
           ))}
         </div>
+
+        {canModerate && (
+          <div className="mt-3">
+            <AddTeacherForm
+              courseId={courseId}
+              onSuccess={(newTeacher) => {
+                setTeachers((prev) => [...prev, newTeacher]);
+                setSelectedTeacher(newTeacher._id);
+              }}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Folder tabs */}
-      <div className="mb-6 border-b border-border">
-        <div className="flex flex-wrap gap-1 -mb-px">
-          {folders.map((folder) => (
-            <button
-              key={folder._id}
-              onClick={() => setSelectedFolder(folder._id)}
-              className={`flex items-center gap-1.5 rounded-t-md border-b-2 px-3 py-2 text-sm transition-colors ${
-                selectedFolder === folder._id
-                  ? "border-accent text-accent"
-                  : "border-transparent text-text-muted hover:text-text"
-              }`}
-            >
-              <FolderIcon size={14} strokeWidth={1.75} />
-              {folder.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Resource list */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12 text-text-muted">
-          <LoaderCircle size={20} className="animate-spin" />
-        </div>
-      ) : resources.length === 0 ? (
+      {teachers.length === 0 ? (
         <div className="rounded-md border border-border bg-surface p-8 text-center">
-          <Inbox size={24} strokeWidth={1.75} className="mx-auto mb-2 text-text-muted" />
-          <p className="text-sm text-text-muted">Nothing here yet.</p>
+          <p className="text-sm text-text-muted">
+            No teachers added for this course yet.
+            {canModerate ? " Add one above." : " Check back soon."}
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {resources.map((resource) => {
-            const Icon = FILE_ICONS[resource.fileType] || FileText;
-            return (
-              <div
-                key={resource._id}
-                className="flex items-center gap-3 rounded-md border border-border bg-surface p-3"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
-                  <Icon size={16} strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text truncate">{resource.title}</p>
-                  {resource.description && (
-                    <p className="text-xs text-text-muted truncate">{resource.description}</p>
-                  )}
-                </div>
+        <>
+          {/* Folder tabs */}
+          <div className="mb-6 border-b border-border">
+            <div className="flex flex-wrap gap-1 -mb-px">
+              {folders.map((folder) => (
+                <button
+                  key={folder._id}
+                  onClick={() => setSelectedFolder(folder._id)}
+                  className={`flex items-center gap-1.5 rounded-t-md border-b-2 px-3 py-2 text-sm transition-colors ${
+                    selectedFolder === folder._id
+                      ? "border-accent text-accent"
+                      : "border-transparent text-text-muted hover:text-text"
+                  }`}
+                >
+                  <FolderIcon size={14} strokeWidth={1.75} />
+                  {folder.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit resource */}
+          <div className="mb-4">
+            {!session ? (
+              <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+                <a href="/login" className="text-accent hover:text-accent-hover">
+                  Login
+                </a>{" "}
+                to submit a resource.
               </div>
-            );
-          })}
-        </div>
+            ) : showSubmitForm ? (
+              <SubmitResourceForm
+                courseId={courseId}
+                teacherId={selectedTeacher}
+                folderId={selectedFolder}
+                onCancel={() => setShowSubmitForm(false)}
+                onSuccess={() => {
+                  setShowSubmitForm(false);
+                  fetchResources();
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setShowSubmitForm(true)}
+                className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-accent hover:border-accent/50 transition-colors"
+              >
+                <Plus size={14} strokeWidth={1.75} />
+                Submit a resource
+              </button>
+            )}
+          </div>
+
+          {/* Resource list */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-text-muted">
+              <LoaderCircle size={20} className="animate-spin" />
+            </div>
+          ) : resources.length === 0 ? (
+            <div className="rounded-md border border-border bg-surface p-8 text-center">
+              <Inbox size={24} strokeWidth={1.75} className="mx-auto mb-2 text-text-muted" />
+              <p className="text-sm text-text-muted">Nothing here yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {resources.map((resource) => {
+                const Icon = FILE_ICONS[resource.fileType] || FileText;
+                return (
+                  <div
+                    key={resource._id}
+                    className="flex items-center gap-3 rounded-md border border-border bg-surface p-3"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
+                      <Icon size={16} strokeWidth={1.75} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text truncate">{resource.title}</p>
+                      {resource.description && (
+                        <p className="text-xs text-text-muted truncate">{resource.description}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
