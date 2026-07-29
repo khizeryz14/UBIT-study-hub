@@ -8,7 +8,15 @@ export default async function CoursesPage({ searchParams }) {
   const curriculum = params?.curriculum === "BSCS" ? "BSCS" : "CS";
 
   await connectDB();
-  const courses = await Course.find({ curriculum }).sort({ semester: 1, code: 1 }).lean();
+  const q = params?.q?.trim();
+  const filter = { curriculum };
+  if (q) {
+    filter.$or = [
+      { code: { $regex: q, $options: "i" } },
+      { title: { $regex: q, $options: "i" } },
+    ];
+  }
+  const courses = await Course.find(filter).sort({ semester: 1, code: 1 }).lean();
 
   const bySemester = {};
   for (const c of courses) {
@@ -19,36 +27,49 @@ export default async function CoursesPage({ searchParams }) {
   return (
     <div className="min-h-screen bg-bg px-4 py-8 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
-          <div>
-            <p className="font-mono text-xs tracking-widest text-accent uppercase mb-1">
-              Catalog
-            </p>
-            <h1 className="text-2xl font-medium text-text">Courses</h1>
+        <div className="mb-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+            <div>
+              <p className="font-mono text-xs tracking-widest text-accent uppercase mb-1">
+                Catalog
+              </p>
+              <h1 className="text-2xl font-medium text-text">Courses</h1>
+            </div>
+
+            <div className="flex rounded-md border border-border overflow-hidden w-fit">
+              <Link
+                href="/courses?curriculum=CS"
+                className={`px-4 py-2 text-sm font-mono transition-colors ${
+                  curriculum === "CS"
+                    ? "bg-accent text-bg"
+                    : "bg-surface text-text-muted hover:text-text"
+                }`}
+              >
+                CS (New)
+              </Link>
+              <Link
+                href="/courses?curriculum=BSCS"
+                className={`px-4 py-2 text-sm font-mono transition-colors ${
+                  curriculum === "BSCS"
+                    ? "bg-accent text-bg"
+                    : "bg-surface text-text-muted hover:text-text"
+                }`}
+              >
+                BSCS (Old)
+              </Link>
+            </div>
           </div>
 
-          <div className="flex rounded-md border border-border overflow-hidden w-fit">
-            <Link
-              href="/courses?curriculum=CS"
-              className={`px-4 py-2 text-sm font-mono transition-colors ${
-                curriculum === "CS"
-                  ? "bg-accent text-bg"
-                  : "bg-surface text-text-muted hover:text-text"
-              }`}
-            >
-              CS (New)
-            </Link>
-            <Link
-              href="/courses?curriculum=BSCS"
-              className={`px-4 py-2 text-sm font-mono transition-colors ${
-                curriculum === "BSCS"
-                  ? "bg-accent text-bg"
-                  : "bg-surface text-text-muted hover:text-text"
-              }`}
-            >
-              BSCS (Old)
-            </Link>
-          </div>
+          <form action="/courses">
+            <input type="hidden" name="curriculum" value={curriculum} />
+            <input
+              type="text"
+              name="q"
+              defaultValue={params?.q || ""}
+              placeholder="Search by course code or title..."
+              className="w-full rounded-md border border-border bg-surface-2 py-2.5 px-4 text-sm text-text placeholder:text-text-muted outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
+            />
+          </form>
         </div>
 
         {Object.keys(bySemester)

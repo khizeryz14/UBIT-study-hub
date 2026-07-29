@@ -18,6 +18,14 @@ import AddTeacherForm from "./AddTeacherForm";
 
 const FILE_ICONS = { pdf: FileText, image: ImageIcon, video: Film, link: LinkIcon };
 
+async function handleOpenResource(resourceId) {
+  const res = await fetch(`/api/resources/${resourceId}/download`);
+  const data = await res.json();
+  if (res.ok) {
+    window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+}
+
 export default function ResourceBrowser({ courseId, teachers: initialTeachers, folders }) {
   const { data: session } = useSession();
   const [teachers, setTeachers] = useState(initialTeachers);
@@ -159,20 +167,21 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
               {resources.map((resource) => {
                 const Icon = FILE_ICONS[resource.fileType] || FileText;
                 return (
-                  <div
-                    key={resource._id}
-                    className="flex items-center gap-3 rounded-md border border-border bg-surface p-3"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
-                      <Icon size={16} strokeWidth={1.75} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-text truncate">{resource.title}</p>
-                      {resource.description && (
-                        <p className="text-xs text-text-muted truncate">{resource.description}</p>
-                      )}
-                    </div>
+                <button
+                  key={resource._id}
+                  onClick={() => handleOpenResource(resource._id)}
+                  className="flex items-center gap-3 rounded-md border border-border bg-surface p-3 text-left hover:border-accent/50 transition-colors"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 border border-accent/30 text-accent">
+                    <Icon size={16} strokeWidth={1.75} />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text truncate">{resource.title}</p>
+                    {resource.description && (
+                      <p className="text-xs text-text-muted truncate">{resource.description}</p>
+                    )}
+                  </div>
+                </button>
                 );
               })}
             </div>
