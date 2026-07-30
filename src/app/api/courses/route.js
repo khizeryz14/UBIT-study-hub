@@ -4,10 +4,33 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Course from "@/models/Course";
 
-export async function GET() {
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+  const q = searchParams.get("q")?.trim();
+  const curriculum = searchParams.get("curriculum");
+  const semester = searchParams.get("semester");
+
   await connectDB();
-  const courses = await Course.find().sort({ semester: 1, code: 1 });
-  return NextResponse.json(courses);
+
+  const filter = {};
+  if (curriculum && ["CS", "BSCS"].includes(curriculum)) filter.curriculum = curriculum;
+  if (semester) filter.semester = Number(semester);
+  if (q) {
+    filter.$or = [
+      { code: { $regex: q, $options: "i" } },
+      { title: { $regex: q, $options: "i" } },
+    ];
+  }
+
+  const total = await Course.countDocuments(filter);
+  const courses = await Course.find(filter)
+    .sort({ semester: 1, code: 1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  return NextResponse.json({ courses, total, page, limit });
 }
 
 export async function POST(request) {

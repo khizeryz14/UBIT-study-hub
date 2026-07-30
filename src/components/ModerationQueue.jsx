@@ -10,9 +10,9 @@ export default function ModerationQueue() {
 
   const fetchPending = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/resources?status=pending");
+    const res = await fetch("/api/resources?status=pending&limit=50");
     const data = await res.json();
-    setPending(Array.isArray(data) ? data : []);
+    setPending(Array.isArray(data.resources) ? data.resources : []);
     setLoading(false);
   }, []);
 

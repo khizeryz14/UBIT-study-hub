@@ -11,6 +11,13 @@ const MIME_TO_CATEGORY = {
   "video/mp4": "video",
 };
 
+const CLIENT_MAX_SIZE = {
+  "application/pdf": 500 * 1024 * 1024,
+  "image/png": 20 * 1024 * 1024,
+  "image/jpeg": 20 * 1024 * 1024,
+  "video/mp4": 500 * 1024 * 1024,
+};
+
 export default function SubmitResourceForm({
   courseId,
   teacherId,
@@ -40,6 +47,16 @@ export default function SubmitResourceForm({
       setError("Choose a file to upload.");
       return;
     }
+
+    if (mode === "file" && file) {
+      const limit = CLIENT_MAX_SIZE[file.type];
+      if (limit && file.size > limit) {
+        setError(`File too large. Max is ${Math.round(limit / 1024 / 1024)}MB.`);
+        setLoading(false);
+        return;
+      }
+    }
+
     if (mode === "link" && !linkUrl.trim()) {
       setError("Enter a link.");
       return;
@@ -61,7 +78,11 @@ export default function SubmitResourceForm({
         const presignRes = await fetch("/api/upload/presign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileName: file.name, fileMimeType: file.type }),
+          body: JSON.stringify({
+            fileName: file.name,
+            fileMimeType: file.type,
+            fileSize: file.size,
+          }),
         });
         const presignData = await presignRes.json();
         if (!presignRes.ok) {

@@ -7,6 +7,7 @@ import Course from "@/models/Course";
 import Teacher from "@/models/Teacher";
 import Folder from "@/models/Folder";
 
+// src/app/api/resources/route.js
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const course = searchParams.get("course");
@@ -14,6 +15,8 @@ export async function GET(request) {
   const folder = searchParams.get("folder");
   const q = searchParams.get("q");
   const statusParam = searchParams.get("status");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
 
   await connectDB();
 
@@ -27,13 +30,16 @@ export async function GET(request) {
   filter.status = statusParam && isModOrAdmin ? statusParam : "published";
   if (q) filter.$text = { $search: q };
 
+  const total = await Resource.countDocuments(filter);
   const resources = await Resource.find(filter)
     .populate("course", "code title")
     .populate("teacher", "name")
     .populate("folder", "name slug")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-  return NextResponse.json(resources);
+  return NextResponse.json({ resources, total, page, limit });
 }
 
 export async function POST(request) {

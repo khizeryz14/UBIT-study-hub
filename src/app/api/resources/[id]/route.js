@@ -53,9 +53,21 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "Resource not found" }, { status: 404 });
   }
 
-  // Note: this only removes the DB record. The actual file still sits in
-  // B2 until we add a cleanup step using resource.fileKey — flagging as a
-  // known gap, not urgent for now since storage cost is low at this scale.
+  if (resource.fileKey) {
+    try {
+      await b2Client.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME,
+          Key: resource.fileKey,
+        })
+      );
+    } catch (err) {
+      // Don't fail the whole request if B2 cleanup fails — the DB record
+      // is already gone, which is the more important half. Log for
+      // manual cleanup instead of blocking the moderator's action.
+      console.error(`Failed to delete B2 object ${resource.fileKey}:`, err);
+    }
+  }
 
   return NextResponse.json({ deleted: true });
 }
