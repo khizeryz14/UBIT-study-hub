@@ -19,11 +19,12 @@ export async function GET(request, { params }) {
   if (resource.status !== "published") {
     const session = await auth.api.getSession({ headers: await headers() });
     const isModOrAdmin = session && ["admin", "moderator"].includes(session.user.role);
-    if (!isModOrAdmin) {
+    const isOwner = session && resource.uploadedBy.toString() === session.user.id;
+    if (!isModOrAdmin && !isOwner) {
       return NextResponse.json({ error: "Not available" }, { status: 403 });
     }
   }
-
+  
   if (resource.fileType === "link") {
     return NextResponse.json({ url: resource.fileUrl });
   }

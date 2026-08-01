@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import clientPromise from "@/lib/mongodb";
 import Resource from "@/models/Resource";
 import Course from "@/models/Course";
 import Teacher from "@/models/Teacher";
 import Folder from "@/models/Folder";
 
-// src/app/api/resources/route.js
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const course = searchParams.get("course");
@@ -37,9 +38,34 @@ export async function GET(request) {
     .populate("folder", "name slug")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .lean();
 
-  return NextResponse.json({ resources, total, page, limit });
+  // uploadedBy is a plain ObjectId (Better Auth's user collection lives
+  // outside Mongoose), so resolve names via one batch native-driver query
+  // instead of N individual lookups.
+  const uploaderIds = [...new Set(resources.map((r) => r.uploadedBy?.toString()).filter(Boolean))];
+  let uploaderMap = {};
+  if (uploaderIds.length > 0) {
+    const client = await clientPromise;
+    const db = client.db();
+    const uploaders = await db
+      .collection("user")
+      .find(
+        { _id: { $in: uploaderIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+        { projection: { name: 1 } }
+      )
+      .toArray();
+    uploaderMap = Object.fromEntries(uploaders.map((u) => [u._id.toString(), u.name]));
+  }
+
+  const enriched = resources.map((r) => ({
+    ...r,
+    uploader: { name: uploaderMap[r.uploadedBy?.toString()] || "Unknown" },
+    isOwn: session ? r.uploadedBy?.toString() === session.user.id : false,
+  }));
+
+  return NextResponse.json({ resources: enriched, total, page, limit });
 }
 
 export async function POST(request) {
@@ -49,13 +75,21 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { title, description, course, teacher, folder, fileType, fileUrl, fileKey } = body;
+  const { title, description, course, teacher, folder, items } = body;
 
-  if (!title || !course || !teacher || !folder || !fileType || !fileUrl) {
+  if (!title || !course || !teacher || !folder || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
-      { error: "title, course, teacher, folder, fileType, and fileUrl are required" },
+      { error: "title, course, teacher, folder, and at least one item are required" },
       { status: 400 }
     );
+  }
+  if (items.length > 20) {
+    return NextResponse.json({ error: "Max 20 files per submission" }, { status: 400 });
+  }
+  for (const item of items) {
+    if (!item.fileType || !item.fileUrl) {
+      return NextResponse.json({ error: "Each item requires fileType and fileUrl" }, { status: 400 });
+    }
   }
 
   await connectDB();
@@ -65,25 +99,35 @@ export async function POST(request) {
     Teacher.findById(teacher),
     Folder.findById(folder),
   ]);
-
   if (!courseExists) return NextResponse.json({ error: "Course not found" }, { status: 404 });
   if (!teacherExists) return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
   if (!folderExists) return NextResponse.json({ error: "Folder not found" }, { status: 404 });
 
   const isModOrAdmin = ["admin", "moderator"].includes(session.user.role);
+  const status = isModOrAdmin ? "published" : "pending";
+  const groupTotal = items.length;
+  const groupId = groupTotal > 1 ? new mongoose.Types.ObjectId() : null;
 
-  const resource = await Resource.create({
-    title,
+  const docs = items.map((item, index) => ({
+    title: groupTotal > 1 ? `${title}-${index + 1}` : title,
+    baseTitle: title,
     description: description || "",
-    course,
-    teacher,
-    folder,
-    fileType,
-    fileUrl,
-    fileKey: fileKey || null,
+    course, teacher, folder,
+    fileType: item.fileType,
+    fileUrl: item.fileUrl,
+    fileKey: item.fileKey || null,
+    thumbKey: item.thumbKey || null,
+    fileSize: item.fileSize || null,
+    width: item.width || null,
+    height: item.height || null,
+    duration: item.duration || null,
+    groupId,
+    groupIndex: index + 1,
+    groupTotal,
     uploadedBy: session.user.id,
-    status: isModOrAdmin ? "published" : "pending",
-  });
+    status,
+  }));
 
-  return NextResponse.json(resource, { status: 201 });
+  const created = await Resource.insertMany(docs);
+  return NextResponse.json({ resources: created, count: created.length }, { status: 201 });
 }

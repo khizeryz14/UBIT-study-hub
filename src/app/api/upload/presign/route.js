@@ -10,13 +10,26 @@ const ALLOWED_TYPES = {
   "application/pdf": "pdf",
   "image/png": "image",
   "image/jpeg": "image",
+  "image/webp": "image",
   "video/mp4": "video",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "doc",
+  "application/vnd.ms-excel": "sheet",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "sheet",
+  "text/csv": "sheet",
+  "application/vnd.ms-powerpoint": "slides",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "slides",
+  "text/plain": "text",
 };
 
 const MAX_SIZE_BY_CATEGORY = {
-  pdf: 500 * 1024 * 1024,      // 500 MB
-  image: 20 * 1024 * 1024,    // 20 MB
-  video: 500 * 1024 * 1024,   // 500 MB
+  pdf: 200 * 1024 * 1024,
+  image: 20 * 1024 * 1024,
+  video: 500 * 1024 * 1024,
+  doc: 50 * 1024 * 1024,
+  sheet: 50 * 1024 * 1024,
+  slides: 50 * 1024 * 1024,
+  text: 10 * 1024 * 1024,
 };
 
 export async function POST(request) {
@@ -26,7 +39,7 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { fileName, fileMimeType, fileSize } = body;
+  const { fileName, fileMimeType, fileSize, hasThumb, thumbMimeType } = body;
 
   if (!fileName || !fileMimeType || !fileSize) {
     return NextResponse.json(
@@ -49,16 +62,34 @@ export async function POST(request) {
   }
 
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileKey = `resources/${session.user.id}/${randomUUID()}-${safeName}`;
+  const uid = randomUUID();
+  const fileKey = `resources/${session.user.id}/${uid}-${safeName}`;
 
-  const command = new PutObjectCommand({
-    Bucket: process.env.B2_BUCKET_NAME,
-    Key: fileKey,
-    ContentType: fileMimeType,
-    ContentLength: fileSize, // locks the presigned URL to this exact byte size
-  });
+  const uploadUrl = await getSignedUrl(
+    b2Client,
+    new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: fileKey,
+      ContentType: fileMimeType,
+      ContentLength: fileSize,
+    }),
+    { expiresIn: 300 }
+  );
 
-  const uploadUrl = await getSignedUrl(b2Client, command, { expiresIn: 300 });
+  let thumbUploadUrl = null;
+  let thumbKey = null;
+  if (hasThumb) {
+    thumbKey = `resources/${session.user.id}/thumb_${uid}.jpg`;
+    thumbUploadUrl = await getSignedUrl(
+      b2Client,
+      new PutObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: thumbKey,
+        ContentType: thumbMimeType || "image/jpeg",
+      }),
+      { expiresIn: 300 }
+    );
+  }
 
-  return NextResponse.json({ uploadUrl, fileKey, fileType: category });
+  return NextResponse.json({ uploadUrl, fileKey, thumbUploadUrl, thumbKey, fileType: category });
 }
