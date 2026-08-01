@@ -10,6 +10,7 @@ import { useSession } from "@/lib/auth-client";
 import SubmitResourceForm from "./SubmitResourceForm";
 import AddTeacherForm from "./AddTeacherForm";
 import ResourceViewerModal from "./ResourceViewerModal";
+import Toast from "./Toast";
 
 const FILE_ICONS = {
   pdf: FileText,
@@ -45,6 +46,7 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
 
   const [thumbUrls, setThumbUrls] = useState({});
   const [selectionMode, setSelectionMode] = useState(false);
@@ -318,7 +320,16 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
             ) : showSubmitForm ? (
               <SubmitResourceForm courseId={courseId} teacherId={selectedTeacher} folderId={selectedFolder}
                 onCancel={() => setShowSubmitForm(false)}
-                onSuccess={() => { setShowSubmitForm(false); fetchResources(); }} />
+                onSuccess={(data) => {
+                  setShowSubmitForm(false);
+                  fetchResources();
+                  const isMember = session.user.role === "member";
+                  setToastMessage(
+                    isMember
+                      ? "Submitted — pending review before it appears publicly."
+                      : "Resource published."
+                  );
+                }} />
             ) : !isSearching && !selectionMode ? (
               <button onClick={() => setShowSubmitForm(true)}
                 className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
@@ -458,6 +469,10 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
             </>
           )}
         </>
+      )}
+
+      {toastMessage && (
+        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
       )}
 
       {modalIndex !== null && (
