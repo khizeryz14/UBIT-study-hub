@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserCircle, FileStack, GraduationCap } from "lucide-react";
 import MyResources from "@/components/MyResources";
+import GradesTracker from "@/components/GradesTracker";
 
 const TABS = [
   { id: "resources", label: "My Resources", icon: FileStack },
@@ -36,12 +37,7 @@ export default function ProfilePage() {
         </div>
 
         {tab === "resources" && <MyResources />}
-        {tab === "grades" && (
-          <div className="rounded-md border border-border bg-surface p-8 text-center">
-            <GraduationCap size={24} strokeWidth={1.75} className="mx-auto mb-2 text-text-muted" />
-            <p className="text-sm text-text-muted">Grade tracking is coming soon.</p>
-          </div>
-        )}
+        {tab === "grades" && <GradesTracker />}
       </div>
     </div>
   );
