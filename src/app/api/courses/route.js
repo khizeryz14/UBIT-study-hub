@@ -53,13 +53,18 @@ export async function POST(request) {
     );
   }
 
-  await connectDB();
+  try {
+    await connectDB();
 
-  const existing = await Course.findOne({ code: code.toUpperCase() });
-  if (existing) {
-    return NextResponse.json({ error: "Course code already exists" }, { status: 409 });
+    const existing = await Course.findOne({ code: code.toUpperCase() });
+    if (existing) {
+      return NextResponse.json({ error: "Course code already exists" }, { status: 409 });
+    }
+
+    const course = await Course.create({ code, title, description, semester, creditHours, curriculum });
+    return NextResponse.json(course, { status: 201 });
+  } catch (err) {
+    console.error("Course creation failed:", err);
+    return NextResponse.json({ error: err.message || "Failed to create course" }, { status: 500 });
   }
-
-  const course = await Course.create({ code, title, description, semester, creditHours });
-  return NextResponse.json(course, { status: 201 });
 }
