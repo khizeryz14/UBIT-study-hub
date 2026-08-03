@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import "@/models/Course";
+import "@/models/Teacher";
+import "@/models/Folder";
 import Resource from "@/models/Resource";
 
 export async function GET(request) {
@@ -14,17 +17,30 @@ export async function GET(request) {
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
 
-  await connectDB();
+  try{
+    await connectDB();
 
-  const filter = { uploadedBy: session.user.id };
-  const total = await Resource.countDocuments(filter);
-  const resources = await Resource.find(filter)
-    .populate("course", "code title")
-    .populate("teacher", "name")
-    .populate("folder", "name")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+    const filter = { uploadedBy: session.user.id };
+    const total = await Resource.countDocuments(filter);
+    const resources = await Resource.find(filter)
+      .populate("course", "code title")
+      .populate("teacher", "name")
+      .populate("folder", "name")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+      return NextResponse.json({ resources, total, page, limit });
+  } 
+    catch (err) {
+      console.error(err);
 
-  return NextResponse.json({ resources, total, page, limit });
+      return NextResponse.json(
+        {
+          error: err.message,
+          stack:
+            process.env.NODE_ENV === "development" ? err.stack : undefined,
+        },
+        { status: 500 }
+      );
+    }
 }

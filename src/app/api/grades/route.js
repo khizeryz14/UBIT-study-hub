@@ -2,18 +2,32 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import "@/models/Course";
 import Grade from "@/models/Grade";
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try{
+    await connectDB();
+    const grades = await Grade.find({ user: session.user.id })
+      .populate("course", "code title creditHours semester curriculum")
+      .sort({ semester: 1 });
 
-  await connectDB();
-  const grades = await Grade.find({ user: session.user.id })
-    .populate("course", "code title creditHours semester curriculum")
-    .sort({ semester: 1 });
+    return NextResponse.json({ grades });
+  }
+  catch (err) {
+    console.error(err);
 
-  return NextResponse.json({ grades });
+    return NextResponse.json(
+      {
+        error: err.message,
+        stack:
+          process.env.NODE_ENV === "development" ? err.stack : undefined,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request) {
