@@ -47,6 +47,8 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
   const [deleteError, setDeleteError] = useState(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [confirmingTeacherDelete, setConfirmingTeacherDelete] = useState(null);
+  const [teacherDeleteBusy, setTeacherDeleteBusy] = useState(false);
 
   const [thumbUrls, setThumbUrls] = useState({});
   const [selectionMode, setSelectionMode] = useState(false);
@@ -221,6 +223,23 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
     setDeleteError(null);
     fetchResources();
   }
+  
+  async function handleDeleteTeacher(teacherId) {
+    setTeacherDeleteBusy(true);
+    const res = await fetch(`/api/teachers/${teacherId}`, { method: "DELETE" });
+    setTeacherDeleteBusy(false);
+
+    if (!res.ok) return;
+
+    setTeachers((prev) => prev.filter((t) => t._id !== teacherId));
+    setConfirmingTeacherDelete(null);
+
+    // If the deleted teacher was selected, fall back to the first remaining one
+    if (selectedTeacher === teacherId) {
+      const remaining = teachers.filter((t) => t._id !== teacherId);
+      setSelectedTeacher(remaining[0]?._id || null);
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -274,13 +293,59 @@ export default function ResourceBrowser({ courseId, teachers: initialTeachers, f
         <>
           <div className="mb-6">
             <p className="font-mono text-[11px] tracking-wide text-text-muted uppercase mb-2">Taught by</p>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap pb-0.5 items-center gap-2">
               {teachers.map((teacher) => (
-                <button key={teacher._id} onClick={() => { setSelectedTeacher(teacher._id); setPage(1); }}
-                  className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${selectedTeacher === teacher._id ? "border-accent bg-accent/10 text-accent" : "border-border bg-surface text-text-muted hover:text-text"}`}>
-                  <User size={14} strokeWidth={1.75} />
-                  {teacher.name}
-                </button>
+                confirmingTeacherDelete === teacher._id ? (
+                  <div
+                    key={teacher._id}
+                    className="flex items-center gap-2 rounded-md border border-error/30 bg-error/10 px-3 py-1.5 text-sm"
+                  >
+                    <span className="text-error">Delete {teacher.name}?</span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingTeacherDelete(null)}
+                      className="text-text-muted hover:text-text"
+                    >
+                      <X size={13} strokeWidth={1.75} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTeacher(teacher._id)}
+                      disabled={teacherDeleteBusy}
+                      className="flex items-center gap-1 rounded-md bg-error px-2 py-0.5 text-xs text-white hover:bg-error/90 disabled:opacity-60"
+                    >
+                      {teacherDeleteBusy ? <LoaderCircle size={12} className="animate-spin" /> : <Trash2 size={12} strokeWidth={1.75} />}
+                      Confirm
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    key={teacher._id}
+                    className={`group flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                      selectedTeacher === teacher._id
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border bg-surface text-text-muted hover:text-text"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedTeacher(teacher._id); setPage(1); }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <User size={14} strokeWidth={1.75} />
+                      {teacher.name}
+                    </button>
+                    {canModerate && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingTeacherDelete(teacher._id)}
+                        className="text-text-muted hover:text-error transition-colors ml-1"
+                      >
+                        <Trash2 size={12} strokeWidth={1.75} />
+                      </button>
+                    )}
+                  </div>
+                )
               ))}
             </div>
             {canModerate && (
