@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Course from "@/models/Course";
+import { revalidateTag } from "next/cache";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -62,6 +63,7 @@ export async function POST(request) {
     }
 
     const course = await Course.create({ code, title, description, semester, creditHours, curriculum });
+    revalidateTag("courses");
     return NextResponse.json(course, { status: 201 });
   } catch (err) {
     console.error("Course creation failed:", err);

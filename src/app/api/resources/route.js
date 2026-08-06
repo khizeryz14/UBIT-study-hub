@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import clientPromise from "@/lib/mongodb";
+import { getSignedThumbUrl } from "@/lib/b2"; // adjust to wherever your B2 signing helper actually lives
 import Resource from "@/models/Resource";
 import Course from "@/models/Course";
 import Teacher from "@/models/Teacher";
@@ -19,9 +20,11 @@ export async function GET(request) {
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
 
-  await connectDB();
+  const [, session] = await Promise.all([
+    connectDB(),
+    auth.api.getSession({ headers: await headers() }),
+  ]);
 
-  const session = await auth.api.getSession({ headers: await headers() });
   const isModOrAdmin = session && ["admin", "moderator"].includes(session.user.role);
 
   const filter = {};
@@ -31,38 +34,48 @@ export async function GET(request) {
   filter.status = statusParam && isModOrAdmin ? statusParam : "published";
   if (q) filter.$text = { $search: q };
 
-  const total = await Resource.countDocuments(filter);
-  const resources = await Resource.find(filter)
-    .populate("course", "code title")
-    .populate("teacher", "name")
-    .populate("folder", "name slug")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .lean();
+  const [total, resources] = await Promise.all([
+    Resource.countDocuments(filter),
+    Resource.find(filter)
+      .populate("course", "code title")
+      .populate("teacher", "name")
+      .populate("folder", "name slug")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+  ]);
 
-  // uploadedBy is a plain ObjectId (Better Auth's user collection lives
-  // outside Mongoose), so resolve names via one batch native-driver query
-  // instead of N individual lookups.
   const uploaderIds = [...new Set(resources.map((r) => r.uploadedBy?.toString()).filter(Boolean))];
-  let uploaderMap = {};
-  if (uploaderIds.length > 0) {
-    const client = await clientPromise;
-    const db = client.db();
-    const uploaders = await db
-      .collection("user")
-      .find(
-        { _id: { $in: uploaderIds.map((id) => new mongoose.Types.ObjectId(id)) } },
-        { projection: { name: 1 } }
-      )
-      .toArray();
-    uploaderMap = Object.fromEntries(uploaders.map((u) => [u._id.toString(), u.name]));
-  }
+
+  const [uploaders, thumbEntries] = await Promise.all([
+    uploaderIds.length > 0
+      ? clientPromise.then((client) =>
+          client
+            .db()
+            .collection("user")
+            .find(
+              { _id: { $in: uploaderIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+              { projection: { name: 1 } }
+            )
+            .toArray()
+        )
+      : Promise.resolve([]),
+    Promise.all(
+      resources
+        .filter((r) => r.thumbKey)
+        .map(async (r) => [r._id.toString(), await getSignedThumbUrl(r.thumbKey)])
+    ),
+  ]);
+
+  const uploaderMap = Object.fromEntries(uploaders.map((u) => [u._id.toString(), u.name]));
+  const thumbMap = Object.fromEntries(thumbEntries);
 
   const enriched = resources.map((r) => ({
     ...r,
     uploader: { name: uploaderMap[r.uploadedBy?.toString()] || "Unknown" },
     isOwn: session ? r.uploadedBy?.toString() === session.user.id : false,
+    thumbUrl: thumbMap[r._id.toString()] || null,
   }));
 
   return NextResponse.json({ resources: enriched, total, page, limit });

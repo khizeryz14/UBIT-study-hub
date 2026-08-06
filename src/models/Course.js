@@ -41,6 +41,6 @@ const courseSchema = new mongoose.Schema(
 courseSchema.index({ code: "text", title: "text", description: "text" });
 
 // Fast sort/filter by semester on the browse page
-courseSchema.index({ curriculum: 1, semester: 1 });
+courseSchema.index({ curriculum: 1, semester: 1, code: 1 });
 
 export default mongoose.models.Course || mongoose.model("Course", courseSchema);
