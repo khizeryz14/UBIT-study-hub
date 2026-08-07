@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# UBIT Study Hub
+
+A crowdsourced study resource platform built for UBIT (University of Karachi CS department) students — share notes, past papers, and course material in one place, track your CGPA, and keep the archive clean through community moderation.
+
+**Live:** [ubit-study-hub.vercel.app](https://ubit-study-hub.vercel.app)
+
+## Features
+
+- **Crowdsourced resource library** — students upload and browse notes, past papers, and course material organized by subject.
+- **Role-based access control** — separate permissions for students, contributors, and moderators/admins.
+- **Direct-to-storage uploads** — files go straight to Backblaze B2 via presigned URLs, keeping the app server out of the upload path.
+- **Moderation queue** — new submissions are reviewed before going live, keeping the archive accurate and spam-free.
+- **Grade tracking & CGPA calculator** — students can log grades per course and track their cumulative GPA over time.
+- **Library archive aesthetic** — a distinct, minimal visual identity built around the idea of a physical study archive.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | [Next.js](https://nextjs.org) (App Router) |
+| Database | MongoDB + Mongoose |
+| Auth | [Better Auth](https://www.better-auth.com/) |
+| File Storage | Backblaze B2 (S3-compatible, via `@aws-sdk/client-s3` + presigned URLs) |
+| Styling | Tailwind CSS v4 |
+| Icons | Lucide |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- A MongoDB database (local or Atlas)
+- A Backblaze B2 bucket with S3-compatible API keys
+
+### Installation
+
+```bash
+git clone https://github.com/khizeryz14/UBIT-study-hub.git
+cd UBIT-study-hub
+npm install
+```
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+# MongoDB
+MONGODB_URI=
+
+# Better Auth
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3000
+
+# Backblaze B2 (S3-compatible)
+B2_ENDPOINT=
+B2_REGION=
+B2_ACCESS_KEY_ID=
+B2_SECRET_ACCESS_KEY=
+B2_BUCKET_NAME=
+```
+
+> Adjust variable names to match what's used in `src/` if they differ — update this section once confirmed.
+
+### Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build for production |
+| `npm run start` | Start the production server |
+| `npm run lint` | Run ESLint |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/          # App source (routes, components, models, lib)
+scripts/      # Utility / maintenance scripts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project is actively evolving as part of ongoing development for UBIT. Issues and pull requests are welcome.
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Not yet specified.
